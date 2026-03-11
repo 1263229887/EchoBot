@@ -110,8 +110,8 @@ function handleMessage(msg) {
     return
   }
 
-  // Streaming event from agent
-  if (msg.type === 'event' && msg.event === 'agent' && msg.payload) {
+  // Streaming event from agent or chat
+  if (msg.type === 'event' && (msg.event === 'agent' || msg.event === 'chat') && msg.payload) {
     const { runId, state, message } = msg.payload
     if (!runId || !eventHandlers.has(runId)) return
 
@@ -161,7 +161,8 @@ function rpc(method, params, timeout = 30000) {
 export async function askOpenClaw(question, settings) {
   await ensureConnected(settings)
 
-  const sessionKey = settings.openclaw.sessionKey || 'agent:main:main'
+  // Each request uses a fresh session (like ClawX desktop) to avoid context pollution
+  const sessionKey = `agent:main:session-${Date.now()}`
   const idempotencyKey = randomUUID()
 
   const result = await rpc('chat.send', {
@@ -176,12 +177,12 @@ export async function askOpenClaw(question, settings) {
     throw new Error('No runId returned from chat.send')
   }
 
-  // Wait for the final response event (90s timeout)
+  // Wait for the final response event (120s for multi-tool-call scenarios)
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       eventHandlers.delete(runId)
-      reject(new Error('OpenClaw response timeout (90s)'))
-    }, 90000)
+      reject(new Error('OpenClaw response timeout (120s)'))
+    }, 120000)
 
     eventHandlers.set(runId, { resolve, reject, timer })
   })

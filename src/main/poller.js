@@ -21,6 +21,7 @@ export class Poller {
     if (this.running) return
     this.settings = settings
     this.running = true
+    this.startedAt = Math.floor(Date.now() / 1000) // ignore messages before startup
     this.poll()
     this.timer = setInterval(() => this.poll(), settings.pollingInterval)
     this.pushStatus()
@@ -70,7 +71,11 @@ export class Poller {
       }
 
       const messages = res.data.messages.filter(
-        (m) => m.localType === 1 && m.isSend === 0 && m.parsedContent?.includes(triggerKeyword)
+        (m) =>
+          m.localType === 1 &&
+          m.isSend === 0 &&
+          m.parsedContent?.includes(triggerKeyword) &&
+          m.createTime >= this.startedAt
       )
 
       for (const msg of messages) {
