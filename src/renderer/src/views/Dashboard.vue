@@ -12,7 +12,10 @@
     </div>
 
     <div class="log-panel">
-      <h3>消息日志</h3>
+      <div class="log-header">
+        <h3>消息日志</h3>
+        <button v-if="logs.length > 0" class="btn-clear" @click="clearLogs">清空</button>
+      </div>
       <div class="log-list" ref="logList">
         <div v-if="logs.length === 0" class="empty">暂无日志</div>
         <div v-for="(log, i) in reversedLogs" :key="i" :class="['log-item', log.type]">
@@ -49,6 +52,11 @@ async function toggle() {
   }
 }
 
+async function clearLogs() {
+  logs.value = []
+  await window.api.clearLogs()
+}
+
 function onStatus(data) {
   running.value = data.running
   processedCount.value = data.processedCount
@@ -68,37 +76,118 @@ onUnmounted(() => {
 
 <style scoped>
 .dashboard { max-width: 720px; }
-h2 { margin: 0 0 20px; color: #e94560; }
-.controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+h2 {
+  margin: 0 0 24px;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
+}
 .btn {
-  padding: 10px 24px; border: none; border-radius: 6px;
-  font-size: 14px; cursor: pointer; color: #fff;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #fff;
+  transition: background var(--transition);
 }
-.btn-start { background: #4caf50; }
-.btn-start:hover { background: #43a047; }
-.btn-stop { background: #e94560; }
-.btn-stop:hover { background: #c73650; }
+.btn-start { background: var(--success); }
+.btn-start:hover { background: #2db84e; }
+.btn-stop { background: var(--danger); }
+.btn-stop:hover { background: #e02020; }
 .status-dot {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
-.status-dot.on { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
-.status-dot.off { background: #666; }
-.status-text { font-size: 14px; color: #a0a0b0; }
-.count { margin-left: auto; font-size: 13px; color: #888; }
-.log-panel { background: #16213e; border-radius: 8px; padding: 16px 20px; }
-.log-panel h3 { margin: 0 0 12px; font-size: 14px; color: #a0a0b0; }
+.status-dot.on {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+.status-dot.off { background: var(--border); }
+.status-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.log-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.log-panel h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.btn-clear {
+  padding: 4px 12px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-clear:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
 .log-list { max-height: 420px; overflow-y: auto; }
-.empty { color: #555; font-size: 13px; }
-.log-item { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #0f3460; font-size: 13px; }
-.log-time { color: #555; min-width: 70px; }
-.log-tag {
-  min-width: 40px; text-align: center; padding: 1px 6px; border-radius: 3px;
-  font-size: 11px; color: #fff;
+.empty { color: var(--text-tertiary); font-size: 13px; }
+.log-item {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
 }
-.log-item.info .log-tag { background: #1976d2; }
-.log-item.ai .log-tag { background: #7b1fa2; }
-.log-item.send .log-tag { background: #4caf50; }
-.log-item.skip .log-tag { background: #ff9800; }
-.log-item.error .log-tag { background: #e94560; }
-.log-msg { flex: 1; color: #ccc; word-break: break-all; }
+.log-time { color: var(--text-tertiary); min-width: 70px; }
+.log-tag {
+  min-width: 40px;
+  text-align: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+}
+.log-item.info .log-tag { background: var(--accent); }
+.log-item.ai .log-tag { background: #af52de; }
+.log-item.send .log-tag { background: var(--success); }
+.log-item.skip .log-tag { background: var(--warning); }
+.log-item.error .log-tag { background: var(--danger); }
+.log-msg {
+  flex: 1;
+  color: var(--text-primary);
+  word-break: break-all;
+}
 </style>

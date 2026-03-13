@@ -7,6 +7,16 @@ const api = {
   startPolling: () => ipcRenderer.invoke('poller:start'),
   stopPolling: () => ipcRenderer.invoke('poller:stop'),
   getStatus: () => ipcRenderer.invoke('poller:status'),
+  clearLogs: () => ipcRenderer.invoke('poller:clearLogs'),
+  fetchChatHistory: (opts) => ipcRenderer.invoke('chat:fetchHistory', opts),
+  summarizeChat: (text) => ipcRenderer.invoke('chat:summarize', text),
+  publishSummary: (opts) => ipcRenderer.invoke('chat:publish', opts),
+  onPublishStatus: (callback) => {
+    ipcRenderer.on('publish:status', (_event, data) => callback(data))
+  },
+  removePublishListener: () => {
+    ipcRenderer.removeAllListeners('publish:status')
+  },
   captureCoordinate: () => ipcRenderer.invoke('coordinate:capture'),
   onStatusUpdate: (callback) => {
     ipcRenderer.on('poller:status', (_event, data) => callback(data))

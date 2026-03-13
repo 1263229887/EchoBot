@@ -30,6 +30,48 @@
         <label>关键词</label>
         <input v-model="form.triggerKeyword" type="text" placeholder="@双" />
       </div>
+      <div class="field">
+        <label>Bot Sender ID</label>
+        <input v-model="form.botSender" type="text" placeholder="wxid_xxx（用于群聊总结时过滤Bot自身消息）" />
+      </div>
+    </section>
+
+    <section class="section">
+      <h3>系统提示词</h3>
+      <p class="hint">指导 AI 以纯文本格式回复，避免 Markdown 语法</p>
+      <div class="field">
+        <textarea v-model="form.systemPrompt" rows="4" placeholder="请用纯文本回复..."></textarea>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3>欢迎语</h3>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" v-model="form.enableWelcome" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>启动轮询时发送欢迎语</span>
+      </div>
+      <div v-if="form.enableWelcome" class="field">
+        <textarea v-model="form.welcomeMessage" rows="3" placeholder="大家好！我是 无双Bot..."></textarea>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3>智能上下文回复</h3>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" v-model="form.enableSmartReply" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>分析所有消息，选择性智能回复</span>
+      </div>
+      <p class="hint">开启后，即使没有 @，也会根据聊天内容判断是否需要回复</p>
+      <div v-if="form.enableSmartReply" class="field">
+        <label>智能回复人设提示词</label>
+        <textarea v-model="form.smartReplyPrompt" rows="5" placeholder="你是群聊里的一个普通群友..."></textarea>
+      </div>
     </section>
 
     <section class="section">
@@ -73,6 +115,23 @@
     </section>
 
     <section class="section">
+      <h3>GitHub Pages 发布</h3>
+      <p class="hint">群聊总结生成后可一键发布到 GitHub Pages</p>
+      <div class="field">
+        <label>仓库 Git URL</label>
+        <input v-model="form.githubRepoUrl" type="text" placeholder="https://github.com/user/repo.git" />
+      </div>
+      <div class="field">
+        <label>仓库标识 (owner/repo)</label>
+        <input v-model="form.githubRepo" type="text" placeholder="user/repo" />
+      </div>
+      <div class="field">
+        <label>Pages 基础 URL</label>
+        <input v-model="form.githubPagesBase" type="text" placeholder="https://user.github.io/repo" />
+      </div>
+    </section>
+
+    <section class="section">
       <h3>回复窗口坐标</h3>
       <div class="row">
         <div class="field">
@@ -108,7 +167,16 @@ const form = reactive({
   aiMode: 'minimax',
   minimax: { baseUrl: '', apiKey: '', modelId: '' },
   openclaw: { wsUrl: '', token: '', sessionKey: '' },
-  coordinates: { x: 0, y: 0 }
+  coordinates: { x: 0, y: 0 },
+  systemPrompt: '',
+  enableWelcome: false,
+  welcomeMessage: '',
+  enableSmartReply: false,
+  smartReplyPrompt: '',
+  botSender: '',
+  githubRepoUrl: '',
+  githubRepo: '',
+  githubPagesBase: ''
 })
 const saved = ref(false)
 const capturing = ref(false)
@@ -147,34 +215,154 @@ async function captureCoord() {
 
 <style scoped>
 .settings { max-width: 640px; }
-h2 { margin: 0 0 20px; color: #e94560; }
-.section { background: #16213e; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; }
-h3 { margin: 0 0 12px; font-size: 14px; color: #a0a0b0; }
-.field { margin-bottom: 10px; }
-.field label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
-.field input {
-  width: 100%; padding: 8px 10px; background: #1a1a2e; border: 1px solid #0f3460;
-  border-radius: 4px; color: #e0e0e0; font-size: 14px; box-sizing: border-box;
+h2 {
+  margin: 0 0 24px;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
 }
-.field input:focus { outline: none; border-color: #e94560; }
+.section {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+.field { margin-bottom: 10px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  resize: vertical;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
 .row { display: flex; gap: 12px; align-items: flex-end; }
 .row .field { flex: 1; }
 .btn-capture {
-  padding: 8px 16px; background: #0f3460; color: #fff; border: none;
-  border-radius: 4px; cursor: pointer; white-space: nowrap; margin-bottom: 10px;
+  padding: 8px 16px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  margin-bottom: 10px;
+  font-size: 13px;
+  transition: all var(--transition);
 }
-.btn-capture:hover { background: #e94560; }
-.mode-switch { display: flex; gap: 8px; }
+.btn-capture:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mode-switch {
+  display: flex;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
 .mode-btn {
-  padding: 8px 20px; background: #1a1a2e; border: 1px solid #0f3460;
-  border-radius: 4px; color: #a0a0b0; cursor: pointer; font-size: 13px;
+  flex: 1;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition);
 }
-.mode-btn.active { background: #0f3460; color: #fff; border-color: #e94560; }
-.actions { margin-top: 20px; display: flex; align-items: center; gap: 12px; }
+.mode-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+/* macOS toggle switch */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #d1d1d6;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 2px;
+  top: 2px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition);
+}
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+.actions {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .btn-save {
-  padding: 10px 28px; background: #e94560; color: #fff; border: none;
-  border-radius: 6px; font-size: 15px; cursor: pointer;
+  padding: 10px 28px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
 }
-.btn-save:hover { background: #c73650; }
-.saved-tip { color: #4caf50; font-size: 14px; }
+.btn-save:hover { background: var(--accent-hover); }
+.saved-tip { color: var(--success); font-size: 14px; }
 </style>

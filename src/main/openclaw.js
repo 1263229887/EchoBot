@@ -57,7 +57,7 @@ function ensureConnected(settings) {
               maxProtocol: 3,
               client: {
                 id: 'gateway-client',
-                displayName: 'EchoBot',
+                displayName: '无双Bot',
                 version: '0.1.0',
                 platform: process.platform,
                 mode: 'ui'
@@ -158,16 +158,21 @@ function rpc(method, params, timeout = 30000) {
   })
 }
 
-export async function askOpenClaw(question, settings) {
+export async function askOpenClaw(question, settings, { systemOverride } = {}) {
   await ensureConnected(settings)
 
-  // Each request uses a fresh session (like ClawX desktop) to avoid context pollution
   const sessionKey = `agent:main:session-${Date.now()}`
   const idempotencyKey = randomUUID()
 
+  const systemContent = systemOverride !== undefined ? systemOverride : settings.systemPrompt
+  let message = question
+  if (systemContent) {
+    message = `[系统指令]\n${systemContent}\n\n[用户提问]\n${question}`
+  }
+
   const result = await rpc('chat.send', {
     sessionKey,
-    message: question,
+    message,
     deliver: false,
     idempotencyKey
   })
