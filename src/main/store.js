@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS = {
   limit: 30,
   triggerKeyword: '@双',
   pollingInterval: 3000,
-  aiMode: 'minimax', // 'minimax' or 'openclaw'
+  aiMode: 'minimax', // 'minimax' | 'openclaw' | 'anthropic' | 'gemini'
   minimax: {
     baseUrl: 'https://api.minimaxi.com/v1',
     apiKey: '',
@@ -37,6 +37,16 @@ const DEFAULT_SETTINGS = {
     wsUrl: 'ws://localhost:18789/ws',
     token: readOpenClawToken(),
     sessionKey: 'agent:main:main'
+  },
+  anthropic: {
+    baseUrl: 'http://43.159.144.102:3000/api',
+    apiKey: '',
+    modelId: 'claude-sonnet-4-20250514'
+  },
+  gemini: {
+    baseUrl: 'https://new.lemonapi.site/v1',
+    apiKey: '',
+    modelId: '[L]gemini-3-pro-preview'
   },
   coordinates: { x: 0, y: 0 },
   systemPrompt:
@@ -56,6 +66,8 @@ const DEFAULT_SETTINGS = {
     '6) 不要每条都回复，大部分时候应该选择不回复\n' +
     '7) 纯文本，不要任何 Markdown 语法',
   botSender: '',
+  useAIGeneratedHTML: true,
+  previewBeforePublish: true,
   githubRepoUrl: 'https://github.com/1263229887/my-webpage.git',
   githubRepo: '1263229887/my-webpage',
   githubPagesBase: 'https://1263229887.github.io/my-webpage'
@@ -84,6 +96,8 @@ export function loadSettings() {
     ...saved,
     minimax: { ...DEFAULT_SETTINGS.minimax, ...saved.minimax },
     openclaw: { ...DEFAULT_SETTINGS.openclaw, ...saved.openclaw },
+    anthropic: { ...DEFAULT_SETTINGS.anthropic, ...saved.anthropic },
+    gemini: { ...DEFAULT_SETTINGS.gemini, ...saved.gemini },
     coordinates: { ...DEFAULT_SETTINGS.coordinates, ...saved.coordinates }
   }
 }

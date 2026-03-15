@@ -2,7 +2,10 @@ import axios from 'axios'
 import { createHash } from 'crypto'
 import { askAI, stripMarkdown } from './ai'
 import { askOpenClaw } from './openclaw'
-import { sendReply } from './autotype'
+import { askAnthropic } from './anthropic'
+import { askGemini } from './gemini'
+import { generateImage } from './imageGen'
+import { sendReply, sendImageReply } from './autotype'
 import { loadProcessedIds, saveProcessedIds, loadContentHashes, saveContentHashes } from './store'
 import { getLastChatContext } from './chatHistory'
 
@@ -87,6 +90,10 @@ export class Poller {
     let reply
     if (this.settings.aiMode === 'openclaw') {
       reply = await askOpenClaw(question, this.settings)
+    } else if (this.settings.aiMode === 'anthropic') {
+      reply = await askAnthropic(question, this.settings)
+    } else if (this.settings.aiMode === 'gemini') {
+      reply = await askGemini(question, this.settings)
     } else {
       reply = await askAI(question, this.settings)
     }
@@ -98,6 +105,10 @@ export class Poller {
     let reply
     if (this.settings.aiMode === 'openclaw') {
       reply = await askOpenClaw(question, this.settings, opts)
+    } else if (this.settings.aiMode === 'anthropic') {
+      reply = await askAnthropic(question, this.settings, opts)
+    } else if (this.settings.aiMode === 'gemini') {
+      reply = await askGemini(question, this.settings, opts)
     } else {
       reply = await askAI(question, this.settings, opts)
     }
@@ -106,6 +117,12 @@ export class Poller {
 
   isAboutChatHistory(question) {
     const keywords = ['聊了什么', '聊天记录', '群里', '大家说', '讨论了', '总结', '之前说', '刚才说', '上面说', '前面说', '谁说了', '说过什么']
+    const q = question.toLowerCase()
+    return keywords.some((k) => q.includes(k))
+  }
+
+  isImageRequest(question) {
+    const keywords = ['画', '生成图片', '生成一张', '生成一幅', '画一个', '画一张', '画一幅', '帮我画', '给我画', 'draw', 'generate image']
     const q = question.toLowerCase()
     return keywords.some((k) => q.includes(k))
   }
@@ -152,19 +169,28 @@ export class Poller {
 
         this.addLog('info', `收到提问: ${question.slice(0, 50)}`)
         try {
-          // Check if question is about group chat content and we have context
-          const chatContext = getLastChatContext()
-          let finalQuestion = question
-          if (chatContext && this.isAboutChatHistory(question)) {
-            finalQuestion =
-              `以下是群聊历史记录供你参考：\n\n${chatContext}\n\n` +
-              `用户提问：${question}`
-            this.addLog('info', '已注入群聊上下文')
+          // Check if this is an image generation request
+          if (this.isImageRequest(question) && this.settings.gemini?.apiKey) {
+            this.addLog('info', '检测到画图意图，生成图片中...')
+            const imagePath = await generateImage(question, this.settings)
+            this.addLog('ai', `图片已生成: ${imagePath}`)
+            await sendImageReply(imagePath, this.settings.coordinates)
+            this.addLog('send', '已发送图片')
+          } else {
+            // Check if question is about group chat content and we have context
+            const chatContext = getLastChatContext()
+            let finalQuestion = question
+            if (chatContext && this.isAboutChatHistory(question)) {
+              finalQuestion =
+                `以下是群聊历史记录供你参考：\n\n${chatContext}\n\n` +
+                `用户提问：${question}`
+              this.addLog('info', '已注入群聊上下文')
+            }
+            const reply = await this.callAI(finalQuestion)
+            this.addLog('ai', `AI回复: ${reply.slice(0, 80)}`)
+            await sendReply(reply, this.settings.coordinates)
+            this.addLog('send', '已发送回复')
           }
-          const reply = await this.callAI(finalQuestion)
-          this.addLog('ai', `AI回复: ${reply.slice(0, 80)}`)
-          await sendReply(reply, this.settings.coordinates)
-          this.addLog('send', '已发送回复')
         } catch (err) {
           this.addLog('error', `处理失败: ${err.message}`)
         }

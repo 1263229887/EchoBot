@@ -7,7 +7,9 @@ import { Poller } from './poller'
 import { fetchChatHistory, formatForSummary, getCachedSummary, setCachedSummary, setLastChatContext } from './chatHistory'
 import { askAI, stripMarkdown } from './ai'
 import { askOpenClaw } from './openclaw'
-import { generateHTML, pushToGitHub, waitForDeploy, getPagesUrl } from './publisher'
+import { askAnthropic } from './anthropic'
+import { askGemini } from './gemini'
+import { generateHTML, generateHTMLWithAI, refineHTMLWithAI, pushToGitHub, waitForDeploy, getPagesUrl } from './publisher'
 import { sendReply } from './autotype'
 import { mouse } from '@nut-tree-fork/nut-js'
 
@@ -112,14 +114,44 @@ function registerIPC() {
     let reply
     if (settings.aiMode === 'openclaw') {
       reply = await askOpenClaw(question, settings, { systemOverride: summaryPrompt })
+    } else if (settings.aiMode === 'anthropic') {
+      reply = await askAnthropic(question, settings, { systemOverride: summaryPrompt })
+    } else if (settings.aiMode === 'gemini') {
+      reply = await askGemini(question, settings, { systemOverride: summaryPrompt })
     } else {
       reply = await askAI(question, settings, { systemOverride: summaryPrompt })
     }
     return stripMarkdown(reply)
   })
 
-  // Publish summary: generate HTML → push to GitHub → poll Actions → send link
-  ipcMain.handle('chat:publish', async (_e, { summary, date }) => {
+  // AI generates HTML page directly from chat records
+  ipcMain.handle('chat:generateHTML', async (_e, { chatText, date }) => {
+    const settings = loadSettings()
+    if (!settings.useAIGeneratedHTML) {
+      return { html: generateHTML(chatText, date) }
+    }
+    const html = await generateHTMLWithAI(chatText, date, settings)
+    return { html }
+  })
+
+  // Save HTML to temp file and open in browser for preview
+  ipcMain.handle('chat:previewHTML', async (_e, { html, date }) => {
+    const { writeFileSync } = await import('fs')
+    const tmpPath = join(app.getPath('temp'), `echobot-preview-${date}.html`)
+    writeFileSync(tmpPath, html, 'utf-8')
+    shell.openExternal(`file:///${tmpPath.replace(/\\/g, '/')}`)
+    return { path: tmpPath }
+  })
+
+  // Refine HTML based on user feedback
+  ipcMain.handle('chat:refineHTML', async (_e, { html, feedback }) => {
+    const settings = loadSettings()
+    const newHTML = await refineHTMLWithAI(html, feedback, settings)
+    return { html: newHTML }
+  })
+
+  // Publish: push HTML to GitHub → poll Actions → send link
+  ipcMain.handle('chat:publish', async (_e, { summary, date, html: preGeneratedHTML }) => {
     const settings = loadSettings()
     const send = (type, msg) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -128,9 +160,9 @@ function registerIPC() {
     }
 
     try {
-      // 1. Generate HTML
-      send('progress', '正在生成 HTML 页面...')
-      const html = generateHTML(summary, date)
+      // 1. Use pre-generated HTML or fallback to template
+      send('progress', '正在准备 HTML 页面...')
+      const html = preGeneratedHTML || generateHTML(summary, date)
 
       // 2. Push to GitHub
       send('progress', '正在推送到 GitHub...')

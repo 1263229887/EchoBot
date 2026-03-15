@@ -21,20 +21,36 @@
       </div>
       <div class="chat-preview">{{ chatText }}</div>
       <div class="summary-actions">
-        <button class="btn-summarize" :disabled="summarizing" @click="doSummarize">
-          {{ summarizing ? 'AI 总结中...' : '生成 AI 总结' }}
+        <button class="btn-generate" :disabled="generating" @click="doGenerateHTML">
+          {{ generating ? 'AI 生成网页中...' : '生成网页日报' }}
         </button>
       </div>
     </section>
 
-    <section v-if="summary" class="section summary-section">
-      <h3>AI 总结</h3>
-      <div class="summary-content">{{ summary }}</div>
-      <div class="publish-actions">
-        <button class="btn-publish" :disabled="publishing" @click="doPublish">
-          {{ publishing ? '发布中...' : '发布到 GitHub Pages 并发送' }}
-        </button>
+    <section v-if="generatedHTML" class="section summary-section">
+      <h3>网页已生成</h3>
+      <div class="preview-section">
+        <div class="preview-actions">
+          <button class="btn-preview" @click="doPreview">在浏览器中预览</button>
+          <button class="btn-publish" :disabled="publishing" @click="doPublish">
+            {{ publishing ? '发布中...' : '发布到 GitHub Pages 并发送' }}
+          </button>
+        </div>
+        <div class="refine-row">
+          <input
+            v-model="feedbackText"
+            type="text"
+            placeholder="对网页不满意？输入修改意见后回车..."
+            class="feedback-input"
+            :disabled="refining"
+            @keyup.enter="doRefine"
+          />
+          <button class="btn-refine" :disabled="refining || !feedbackText.trim()" @click="doRefine">
+            {{ refining ? '修改中...' : '重新生成' }}
+          </button>
+        </div>
       </div>
+
       <div v-if="publishStatus" :class="['publish-status', publishType]">
         {{ publishStatus }}
       </div>
@@ -54,22 +70,26 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const loading = ref(false)
-const summarizing = ref(false)
 const publishing = ref(false)
+const generating = ref(false)
+const refining = ref(false)
 const chatText = ref('')
 const messageCount = ref(0)
 const totalRaw = ref(0)
-const summary = ref('')
+const generatedHTML = ref('')
+const feedbackText = ref('')
 const errorMsg = ref('')
 const publishStatus = ref('')
 const publishType = ref('')
 const publishedUrl = ref('')
+const settings = ref({})
 
 async function fetchHistory() {
   loading.value = true
   errorMsg.value = ''
-  summary.value = ''
   chatText.value = ''
+  generatedHTML.value = ''
+  feedbackText.value = ''
   try {
     const date = selectedDate.value.replace(/-/g, '')
     const result = await window.api.fetchChatHistory({ date })
@@ -86,15 +106,47 @@ async function fetchHistory() {
   }
 }
 
-async function doSummarize() {
-  summarizing.value = true
+async function doGenerateHTML() {
+  generating.value = true
   errorMsg.value = ''
   try {
-    summary.value = await window.api.summarizeChat(chatText.value)
+    const date = selectedDate.value.replace(/-/g, '')
+    const result = await window.api.generateHTML({ chatText: chatText.value, date })
+    generatedHTML.value = result.html
+    // Auto-preview if setting enabled
+    if (settings.value.previewBeforePublish !== false) {
+      await window.api.previewHTML({ html: result.html, date })
+    }
   } catch (err) {
-    errorMsg.value = `总结失败: ${err.message}`
+    errorMsg.value = `生成网页失败: ${err.message}`
   } finally {
-    summarizing.value = false
+    generating.value = false
+  }
+}
+
+async function doPreview() {
+  const date = selectedDate.value.replace(/-/g, '')
+  await window.api.previewHTML({ html: generatedHTML.value, date })
+}
+
+async function doRefine() {
+  if (!feedbackText.value.trim()) return
+  refining.value = true
+  errorMsg.value = ''
+  try {
+    const result = await window.api.refineHTML({
+      html: generatedHTML.value,
+      feedback: feedbackText.value
+    })
+    generatedHTML.value = result.html
+    feedbackText.value = ''
+    // Auto-preview after refinement
+    const date = selectedDate.value.replace(/-/g, '')
+    await window.api.previewHTML({ html: result.html, date })
+  } catch (err) {
+    errorMsg.value = `修改失败: ${err.message}`
+  } finally {
+    refining.value = false
   }
 }
 
@@ -105,7 +157,11 @@ async function doPublish() {
   publishedUrl.value = ''
   try {
     const date = selectedDate.value.replace(/-/g, '')
-    const result = await window.api.publishSummary({ summary: summary.value, date })
+    const result = await window.api.publishSummary({
+      summary: chatText.value,
+      date,
+      html: generatedHTML.value || undefined
+    })
     if (result.success) {
       publishedUrl.value = result.url
     }
@@ -127,7 +183,8 @@ function onPublishUpdate(data) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  settings.value = await window.api.loadSettings()
   window.api.onPublishStatus(onPublishUpdate)
 })
 
@@ -178,7 +235,7 @@ h3 {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }
-.btn-fetch, .btn-summarize {
+.btn-fetch {
   padding: 10px 24px;
   background: var(--accent);
   color: #fff;
@@ -190,8 +247,8 @@ h3 {
   white-space: nowrap;
   transition: background var(--transition);
 }
-.btn-fetch:hover, .btn-summarize:hover { background: var(--accent-hover); }
-.btn-fetch:disabled, .btn-summarize:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-fetch:hover { background: var(--accent-hover); }
+.btn-fetch:disabled { opacity: 0.6; cursor: not-allowed; }
 .stats-row {
   display: flex;
   align-items: center;
@@ -213,18 +270,36 @@ h3 {
   word-break: break-all;
 }
 .summary-actions { margin-top: 12px; }
-.summary-content {
-  padding: 12px;
-  background: var(--bg-input);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-}
 .error-section { border-left: 3px solid var(--danger); }
 .error-text { color: var(--danger); font-size: 14px; margin: 0; }
-.publish-actions { margin-top: 12px; }
+.publish-actions { margin-top: 12px; display: flex; gap: 8px; }
+.btn-generate {
+  padding: 10px 24px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-generate:hover { background: var(--accent-hover); }
+.btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+.preview-section { margin-top: 12px; }
+.preview-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.btn-preview {
+  padding: 10px 24px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-preview:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-publish {
   padding: 10px 24px;
   background: var(--success);
@@ -258,4 +333,39 @@ h3 {
   word-break: break-all;
 }
 .published-url a:hover { text-decoration: underline; }
+.refine-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.feedback-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.feedback-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+.btn-refine {
+  padding: 10px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition);
+}
+.btn-refine:hover { background: var(--accent-hover); }
+.btn-refine:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

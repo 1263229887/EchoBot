@@ -11,6 +11,9 @@ const api = {
   fetchChatHistory: (opts) => ipcRenderer.invoke('chat:fetchHistory', opts),
   summarizeChat: (text) => ipcRenderer.invoke('chat:summarize', text),
   publishSummary: (opts) => ipcRenderer.invoke('chat:publish', opts),
+  generateHTML: (opts) => ipcRenderer.invoke('chat:generateHTML', opts),
+  previewHTML: (opts) => ipcRenderer.invoke('chat:previewHTML', opts),
+  refineHTML: (opts) => ipcRenderer.invoke('chat:refineHTML', opts),
   onPublishStatus: (callback) => {
     ipcRenderer.on('publish:status', (_event, data) => callback(data))
   },

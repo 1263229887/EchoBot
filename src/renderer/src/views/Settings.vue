@@ -78,6 +78,8 @@
       <h3>AI 模式</h3>
       <div class="mode-switch">
         <button :class="['mode-btn', form.aiMode === 'minimax' && 'active']" @click="form.aiMode = 'minimax'">MiniMax 直连</button>
+        <button :class="['mode-btn', form.aiMode === 'anthropic' && 'active']" @click="form.aiMode = 'anthropic'">Anthropic 直连</button>
+        <button :class="['mode-btn', form.aiMode === 'gemini' && 'active']" @click="form.aiMode = 'gemini'">Gemini 直连</button>
         <button :class="['mode-btn', form.aiMode === 'openclaw' && 'active']" @click="form.aiMode = 'openclaw'">OpenClaw</button>
       </div>
     </section>
@@ -95,6 +97,38 @@
       <div class="field">
         <label>模型 ID</label>
         <input v-model="form.minimax.modelId" type="text" />
+      </div>
+    </section>
+
+    <section v-if="form.aiMode === 'anthropic'" class="section">
+      <h3>Anthropic AI</h3>
+      <div class="field">
+        <label>Base URL</label>
+        <input v-model="form.anthropic.baseUrl" type="text" placeholder="http://43.159.144.102:3000/api" />
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input v-model="form.anthropic.apiKey" type="password" />
+      </div>
+      <div class="field">
+        <label>模型 ID</label>
+        <input v-model="form.anthropic.modelId" type="text" placeholder="claude-code-opus-4-6" />
+      </div>
+    </section>
+
+    <section v-if="form.aiMode === 'gemini'" class="section">
+      <h3>Gemini AI</h3>
+      <div class="field">
+        <label>Base URL</label>
+        <input v-model="form.gemini.baseUrl" type="text" placeholder="https://new.lemonapi.site/v1" />
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input v-model="form.gemini.apiKey" type="password" />
+      </div>
+      <div class="field">
+        <label>模型 ID</label>
+        <input v-model="form.gemini.modelId" type="text" placeholder="[L]gemini-3-pro-preview" />
       </div>
     </section>
 
@@ -117,6 +151,20 @@
     <section class="section">
       <h3>GitHub Pages 发布</h3>
       <p class="hint">群聊总结生成后可一键发布到 GitHub Pages</p>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" v-model="form.useAIGeneratedHTML" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>使用 AI 生成网页（关闭则使用默认模板）</span>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" v-model="form.previewBeforePublish" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>发布前在浏览器中预览</span>
+      </div>
       <div class="field">
         <label>仓库 Git URL</label>
         <input v-model="form.githubRepoUrl" type="text" placeholder="https://github.com/user/repo.git" />
@@ -166,6 +214,8 @@ const form = reactive({
   pollingInterval: 3000,
   aiMode: 'minimax',
   minimax: { baseUrl: '', apiKey: '', modelId: '' },
+  anthropic: { baseUrl: '', apiKey: '', modelId: '' },
+  gemini: { baseUrl: '', apiKey: '', modelId: '' },
   openclaw: { wsUrl: '', token: '', sessionKey: '' },
   coordinates: { x: 0, y: 0 },
   systemPrompt: '',
@@ -174,6 +224,8 @@ const form = reactive({
   enableSmartReply: false,
   smartReplyPrompt: '',
   botSender: '',
+  useAIGeneratedHTML: true,
+  previewBeforePublish: true,
   githubRepoUrl: '',
   githubRepo: '',
   githubPagesBase: ''

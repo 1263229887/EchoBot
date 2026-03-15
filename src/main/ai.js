@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-export async function askAI(question, settings, { systemOverride } = {}) {
+export async function askAI(question, settings, { systemOverride, maxTokens } = {}) {
   const { baseUrl, apiKey, modelId } = settings.minimax
   const url = `${baseUrl}/chat/completions`
 
@@ -11,19 +11,21 @@ export async function askAI(question, settings, { systemOverride } = {}) {
   }
   messages.push({ role: 'user', content: question })
 
-  const response = await axios.post(
-    url,
-    { model: modelId, messages },
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000
-    }
-  )
+  const body = { model: modelId, messages }
+  if (maxTokens) body.max_tokens = maxTokens
 
-  return response.data.choices[0].message.content
+  const response = await axios.post(url, body, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    timeout: 180000
+  })
+
+  let content = response.data.choices[0].message.content
+  // Strip <think>...</think> reasoning blocks from response
+  content = content.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim()
+  return content
 }
 
 export function stripMarkdown(text) {
