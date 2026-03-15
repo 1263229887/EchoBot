@@ -80,6 +80,28 @@ function registerIPC() {
     return { x: pos.x, y: pos.y }
   })
 
+  // AI send message: call AI then autotype reply to target window
+  ipcMain.handle('ai:sendMessage', async (_e, text) => {
+    const settings = loadSettings()
+    try {
+      let reply
+      if (settings.aiMode === 'openclaw') {
+        reply = await askOpenClaw(text, settings)
+      } else if (settings.aiMode === 'anthropic') {
+        reply = await askAnthropic(text, settings)
+      } else if (settings.aiMode === 'gemini') {
+        reply = await askGemini(text, settings)
+      } else {
+        reply = await askAI(text, settings)
+      }
+      reply = stripMarkdown(reply)
+      await sendReply(reply, settings.coordinates)
+      return { success: true, reply }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
   // Chat history & summary
   ipcMain.handle('chat:fetchHistory', async (_e, opts) => {
     const settings = loadSettings()

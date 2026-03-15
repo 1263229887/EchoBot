@@ -14,6 +14,7 @@ const api = {
   generateHTML: (opts) => ipcRenderer.invoke('chat:generateHTML', opts),
   previewHTML: (opts) => ipcRenderer.invoke('chat:previewHTML', opts),
   refineHTML: (opts) => ipcRenderer.invoke('chat:refineHTML', opts),
+  aiSendMessage: (text) => ipcRenderer.invoke('ai:sendMessage', text),
   onPublishStatus: (callback) => {
     ipcRenderer.on('publish:status', (_event, data) => callback(data))
   },
