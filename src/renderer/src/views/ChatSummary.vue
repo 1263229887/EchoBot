@@ -20,6 +20,13 @@
         <span class="stats">{{ messageCount }} 条有效消息 / {{ totalRaw }} 条原始</span>
       </div>
       <div class="chat-preview">{{ chatText }}</div>
+      <div class="prompt-toggle" @click="showPrompt = !showPrompt">
+        {{ showPrompt ? '收起提示词 ▲' : '查看/编辑提示词 ▼' }}
+      </div>
+      <div v-if="showPrompt" class="prompt-editor">
+        <textarea v-model="systemPrompt" class="prompt-textarea" rows="10"></textarea>
+        <button class="btn-reset" @click="systemPrompt = defaultPrompt">恢复默认</button>
+      </div>
       <div class="summary-actions">
         <button class="btn-generate" :disabled="generating" @click="doGenerateHTML">
           {{ generating ? 'AI 生成网页中...' : '生成网页日报' }}
@@ -83,6 +90,9 @@ const publishStatus = ref('')
 const publishType = ref('')
 const publishedUrl = ref('')
 const settings = ref({})
+const systemPrompt = ref('')
+const defaultPrompt = ref('')
+const showPrompt = ref(false)
 
 async function fetchHistory() {
   loading.value = true
@@ -111,7 +121,7 @@ async function doGenerateHTML() {
   errorMsg.value = ''
   try {
     const date = selectedDate.value.replace(/-/g, '')
-    const result = await window.api.generateHTML({ chatText: chatText.value, date })
+    const result = await window.api.generateHTML({ chatText: chatText.value, date, customSystemPrompt: systemPrompt.value })
     generatedHTML.value = result.html
     // Auto-preview if setting enabled
     if (settings.value.previewBeforePublish !== false) {
@@ -135,8 +145,10 @@ async function doRefine() {
   errorMsg.value = ''
   try {
     const result = await window.api.refineHTML({
-      html: generatedHTML.value,
-      feedback: feedbackText.value
+      chatText: chatText.value,
+      date: selectedDate.value.replace(/-/g, ''),
+      feedback: feedbackText.value,
+      customSystemPrompt: systemPrompt.value
     })
     generatedHTML.value = result.html
     feedbackText.value = ''
@@ -186,6 +198,11 @@ function onPublishUpdate(data) {
 onMounted(async () => {
   settings.value = await window.api.loadSettings()
   window.api.onPublishStatus(onPublishUpdate)
+  try {
+    const res = await window.api.getHTMLPrompt()
+    defaultPrompt.value = res.prompt
+    systemPrompt.value = res.prompt
+  } catch {}
 })
 
 onUnmounted(() => {
@@ -368,4 +385,44 @@ h3 {
 }
 .btn-refine:hover { background: var(--accent-hover); }
 .btn-refine:disabled { opacity: 0.6; cursor: not-allowed; }
+.prompt-toggle {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  user-select: none;
+}
+.prompt-toggle:hover { text-decoration: underline; }
+.prompt-editor { margin-bottom: 12px; }
+.prompt-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+.btn-reset {
+  margin-top: 6px;
+  padding: 6px 16px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-reset:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 </style>

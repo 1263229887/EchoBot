@@ -93,7 +93,7 @@ async function callAIForHTML(question, settings, systemPrompt) {
   return askAI(question, settings, opts)
 }
 
-const HTML_SYSTEM_PROMPT =
+export const HTML_SYSTEM_PROMPT =
   '你是一个网页设计师。请根据群聊记录直接分析并生成一个完整的、自包含的 HTML 群聊日报页面。\n' +
   '你需要自己阅读聊天记录，提取话题、统计发言、分析人物特点，然后生成网页。\n\n' +
   '## 内容结构要求（参照模板）\n' +
@@ -144,24 +144,25 @@ const HTML_SYSTEM_PROMPT =
 /**
  * Use AI to generate a styled HTML page directly from chat records.
  */
-export async function generateHTMLWithAI(chatText, date, settings) {
+export async function generateHTMLWithAI(chatText, date, settings, customSystemPrompt) {
+  const prompt = customSystemPrompt || HTML_SYSTEM_PROMPT
   const question =
     `日期: ${date}\n生成时间: ${new Date().toLocaleString('zh-CN')}\n\n` +
     `以下是今日群聊记录原文，请分析并生成网页日报：\n\n${chatText}`
-  const reply = await callAIForHTML(question, settings, HTML_SYSTEM_PROMPT)
+  const reply = await callAIForHTML(question, settings, prompt)
   return extractHTML(reply)
 }
 
 /**
- * Use AI to refine an existing HTML page based on user feedback.
+ * Regenerate HTML with full system prompt + user feedback + original chat text.
  */
-export async function refineHTMLWithAI(currentHTML, feedback, settings) {
-  const systemPrompt =
-    '你之前生成了一个 HTML 页面，用户对效果不满意。\n' +
-    '请根据用户的修改意见调整 HTML。只返回完整的修改后 HTML 代码，不要解释。'
+export async function refineHTMLWithAI(chatText, date, feedback, settings, customSystemPrompt) {
+  const basePrompt = customSystemPrompt || HTML_SYSTEM_PROMPT
+  const prompt = basePrompt + '\n\n## 用户额外要求\n' + feedback
   const question =
-    `当前 HTML：\n\n${currentHTML}\n\n用户修改意见：${feedback}`
-  const reply = await callAIForHTML(question, settings, systemPrompt)
+    `日期: ${date}\n生成时间: ${new Date().toLocaleString('zh-CN')}\n\n` +
+    `以下是今日群聊记录原文，请分析并生成网页日报：\n\n${chatText}`
+  const reply = await callAIForHTML(question, settings, prompt)
   return extractHTML(reply)
 }
 

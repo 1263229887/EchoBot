@@ -9,7 +9,7 @@ import { askAI, stripMarkdown } from './ai'
 import { askOpenClaw } from './openclaw'
 import { askAnthropic } from './anthropic'
 import { askGemini } from './gemini'
-import { generateHTML, generateHTMLWithAI, refineHTMLWithAI, pushToGitHub, waitForDeploy, getPagesUrl } from './publisher'
+import { generateHTML, generateHTMLWithAI, refineHTMLWithAI, pushToGitHub, waitForDeploy, getPagesUrl, HTML_SYSTEM_PROMPT } from './publisher'
 import { sendReply } from './autotype'
 import { mouse } from '@nut-tree-fork/nut-js'
 
@@ -147,12 +147,12 @@ function registerIPC() {
   })
 
   // AI generates HTML page directly from chat records
-  ipcMain.handle('chat:generateHTML', async (_e, { chatText, date }) => {
+  ipcMain.handle('chat:generateHTML', async (_e, { chatText, date, customSystemPrompt }) => {
     const settings = loadSettings()
     if (!settings.useAIGeneratedHTML) {
       return { html: generateHTML(chatText, date) }
     }
-    const html = await generateHTMLWithAI(chatText, date, settings)
+    const html = await generateHTMLWithAI(chatText, date, settings, customSystemPrompt || undefined)
     return { html }
   })
 
@@ -165,11 +165,16 @@ function registerIPC() {
     return { path: tmpPath }
   })
 
-  // Refine HTML based on user feedback
-  ipcMain.handle('chat:refineHTML', async (_e, { html, feedback }) => {
+  // Refine HTML based on user feedback (full regeneration with original chat text)
+  ipcMain.handle('chat:refineHTML', async (_e, { chatText, date, feedback, customSystemPrompt }) => {
     const settings = loadSettings()
-    const newHTML = await refineHTMLWithAI(html, feedback, settings)
+    const newHTML = await refineHTMLWithAI(chatText, date, feedback, settings, customSystemPrompt || undefined)
     return { html: newHTML }
+  })
+
+  // Return the default HTML system prompt to the renderer
+  ipcMain.handle('chat:getHTMLPrompt', async () => {
+    return { prompt: HTML_SYSTEM_PROMPT }
   })
 
   // Publish: push HTML to GitHub → poll Actions → send link
