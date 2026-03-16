@@ -82,7 +82,7 @@ function extractHTML(text) {
  * Route AI call based on aiMode setting.
  */
 async function callAIForHTML(question, settings, systemPrompt) {
-  const opts = { systemOverride: systemPrompt, maxTokens: 8192 }
+  const opts = { systemOverride: systemPrompt, maxTokens: 16384 }
   if (settings.aiMode === 'openclaw') {
     return askOpenClaw(question, settings, opts)
   } else if (settings.aiMode === 'anthropic') {
@@ -103,7 +103,7 @@ const HTML_SYSTEM_PROMPT =
   '   - 编号+emoji标题（有趣、接地气的中文标题）+ 英文副标题\n' +
   '   - 参与者（圆角胶囊标签样式）\n' +
   '   - 时间段\n' +
-  '   - 过程描述（详细生动的叙述，保留群友原话亮点）\n' +
+  '   - 过程描述（详细生动的叙述，保留群友原话亮点，所有 @xx 提及必须用 <span style="color:#007AFF;font-weight:600">@xx</span> 高亮显示）\n' +
   '   - 评价（带左侧彩色边框的引用样式，点评要有洞察力）\n' +
   '   - 重要/激烈的话题卡片应跨列展示（更宽）\n' +
   '3. 其他提及话题：emoji+文字列表，简短有趣\n' +
@@ -115,13 +115,17 @@ const HTML_SYSTEM_PROMPT =
   '   - 🦉 熬夜冠军 TOP 3：列出最晚发言的3人，显示昵称+最后发言时间，用卡片列表样式\n' +
   '   - 如果聊天内容有其他有趣的维度，可以自由发挥增加榜单（如：最爱发图片、话题终结者、捧哏王等）\n' +
   '   注意：每个趣味榜单都要有自己的个性，不要只是干巴巴列名字，要有血有肉有故事！\n\n' +
-  '## UI 设计要求（Apple 风格）\n' +
-  '- Apple 设计语言：简洁、优雅、大量留白、圆角卡片\n' +
-  '- 字体：-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif\n' +
-  '- 配色：浅灰背景 (#f5f5f7)，白色卡片，蓝色主题色 (#007AFF)\n' +
-  '- 卡片：白色背景、16px 圆角、柔和阴影\n' +
-  '- 参与者标签：圆角胶囊样式，浅蓝底色\n' +
-  '- 评价区块：左侧 3px 蓝色边框 + 浅蓝背景\n' +
+  '## UI 设计要求（macOS 风格）\n' +
+  '- macOS 设计语言：简洁、优雅、大量留白、圆角卡片、毛玻璃质感\n' +
+  '- 字体：-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif\n' +
+  '- 配色：浅灰背景 (#f5f5f7)，半透明白色卡片，蓝色主题色 (#007AFF)\n' +
+  '- 毛玻璃效果：卡片使用 background: rgba(255,255,255,0.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 实现 macOS 风格的磨砂玻璃质感\n' +
+  '- 页面背景可加一层淡淡的渐变色（如从浅蓝到浅紫），让毛玻璃效果更明显\n' +
+  '- 卡片：半透明白色背景、16px 圆角、1px rgba(255,255,255,0.5) 边框、柔和阴影 (0 8px 32px rgba(0,0,0,0.08))\n' +
+  '- macOS 窗口风格：顶部总评卡片可模拟 macOS 窗口标题栏，左上角加红黄绿三个小圆点装饰\n' +
+  '- 参与者标签：圆角胶囊样式，半透明浅蓝底色 (rgba(0,122,255,0.1))，backdrop-filter: blur(8px)\n' +
+  '- 评价区块：左侧 3px 蓝色边框 + 半透明浅蓝背景\n' +
+  '- 所有 @xx 群成员提及统一用主题色 #007AFF 加粗高亮\n' +
   '- 响应式网格布局，移动端友好\n' +
   '- 趣味卡片可以用不同的强调色区分（金色、粉色、紫色等），让每张卡片有辨识度\n\n' +
   '## 动画要求（Apple 风格）\n' +
