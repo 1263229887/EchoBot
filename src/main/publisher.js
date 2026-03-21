@@ -182,7 +182,7 @@ function git(args, cwd) {
  * Clone repo (shallow), write HTML, commit & push, return the filename.
  */
 export async function pushToGitHub(html, date, settings) {
-  const tmpDir = join(app.getPath('temp'), 'echobot-publish')
+  const tmpDir = join(app.getPath('temp'), 'wushuangbot-publish')
   const repoUrl = settings.githubRepoUrl || `https://github.com/${REPO}.git`
 
   // Clean and clone

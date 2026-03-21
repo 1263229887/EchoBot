@@ -1,4 +1,4 @@
-# echobot
+# wushuangbot
 
 An Electron application with Vue
 

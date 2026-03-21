@@ -5,9 +5,9 @@ import { homedir } from 'os'
 
 const getPath = (filename) => join(app.getPath('userData'), filename)
 
-const SETTINGS_FILE = 'echobot-config.json'
-const PROCESSED_FILE = 'echobot-processed.json'
-const HASHES_FILE = 'echobot-hashes.json'
+const SETTINGS_FILE = 'wushuangbot-config.json'
+const PROCESSED_FILE = 'wushuangbot-processed.json'
+const HASHES_FILE = 'wushuangbot-hashes.json'
 
 // Try to read OpenClaw token from ~/.openclaw/openclaw.json
 function readOpenClawToken() {

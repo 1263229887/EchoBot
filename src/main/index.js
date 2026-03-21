@@ -159,7 +159,7 @@ function registerIPC() {
   // Save HTML to temp file and open in browser for preview
   ipcMain.handle('chat:previewHTML', async (_e, { html, date }) => {
     const { writeFileSync } = await import('fs')
-    const tmpPath = join(app.getPath('temp'), `echobot-preview-${date}.html`)
+    const tmpPath = join(app.getPath('temp'), `wushuangbot-preview-${date}.html`)
     writeFileSync(tmpPath, html, 'utf-8')
     shell.openExternal(`file:///${tmpPath.replace(/\\/g, '/')}`)
     return { path: tmpPath }

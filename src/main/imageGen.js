@@ -40,7 +40,7 @@ export async function generateImage(prompt, settings) {
   const buffer = Buffer.from(base64Data, 'base64')
 
   // Save to temp directory
-  const imgDir = join(app.getPath('temp'), 'echobot-images')
+  const imgDir = join(app.getPath('temp'), 'wushuangbot-images')
   if (!existsSync(imgDir)) {
     mkdirSync(imgDir, { recursive: true })
   }
