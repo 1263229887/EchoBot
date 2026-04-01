@@ -52,6 +52,9 @@ function registerIPC() {
   ipcMain.handle('settings:load', () => loadSettings())
   ipcMain.handle('settings:save', (_e, settings) => {
     saveSettings(settings)
+    if (poller?.running) {
+      poller.updateSettings(settings)
+    }
     return true
   })
   ipcMain.handle('poller:start', () => {
@@ -105,12 +108,16 @@ function registerIPC() {
   // Chat history & summary
   ipcMain.handle('chat:fetchHistory', async (_e, opts) => {
     const settings = loadSettings()
-    const { date } = opts
+    const { date, keyword } = opts
+    // groupId = talker + '@chatroom' (WeChat group ID format)
+    const groupId = settings.talker.includes('@chatroom') ? settings.talker : `${settings.talker}@chatroom`
     const result = await fetchChatHistory({
       apiUrl: settings.apiUrl,
       talker: settings.talker,
       date,
-      botSender: settings.botSender
+      botSender: settings.botSender,
+      groupId,
+      keyword
     })
     // Cache the cleaned text for @reply context
     const text = formatForSummary(result.messages)

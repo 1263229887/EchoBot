@@ -4,7 +4,12 @@ export async function askAnthropic(question, settings, { systemOverride, maxToke
   const { baseUrl, apiKey, modelId } = settings.anthropic
   const url = `${baseUrl}/v1/messages`
 
-  const systemContent = systemOverride !== undefined ? systemOverride : settings.systemPrompt
+  let systemContent = systemOverride !== undefined ? systemOverride : settings.systemPrompt
+  const apiUrl = settings.apiUrl || ''
+  const talker = settings.talker || ''
+  if (systemContent) {
+    systemContent = systemContent.replace(/\{apiUrl\}/g, apiUrl).replace(/\{talker\}/g, talker)
+  }
   const body = {
     model: modelId,
     max_tokens: maxTokens || 4096,

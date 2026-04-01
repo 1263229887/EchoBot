@@ -4,7 +4,12 @@ export async function askAI(question, settings, { systemOverride, maxTokens } = 
   const { baseUrl, apiKey, modelId } = settings.minimax
   const url = `${baseUrl}/chat/completions`
 
-  const systemContent = systemOverride !== undefined ? systemOverride : settings.systemPrompt
+  let systemContent = systemOverride !== undefined ? systemOverride : settings.systemPrompt
+  const apiUrl = settings.apiUrl || ''
+  const talker = settings.talker || ''
+  if (systemContent) {
+    systemContent = systemContent.replace(/\{apiUrl\}/g, apiUrl).replace(/\{talker\}/g, talker)
+  }
   const messages = []
   if (systemContent) {
     messages.push({ role: 'system', content: systemContent })

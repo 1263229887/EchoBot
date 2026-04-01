@@ -7,7 +7,7 @@ import { askGemini } from './gemini'
 import { generateImage } from './imageGen'
 import { sendReply, sendImageReply } from './autotype'
 import { loadProcessedIds, saveProcessedIds, loadContentHashes, saveContentHashes } from './store'
-import { getLastChatContext } from './chatHistory'
+import { fetchChatHistory, formatForSummary, getLastChatContext } from './chatHistory'
 
 export class Poller {
   constructor(mainWindow) {
@@ -37,6 +37,11 @@ export class Poller {
     if (settings.enableWelcome && settings.welcomeMessage) {
       setTimeout(() => this.sendWelcome(), 2000)
     }
+  }
+
+  // Update settings in-place while running (e.g. after user changes settings)
+  updateSettings(settings) {
+    this.settings = settings
   }
 
   stop() {
@@ -177,14 +182,38 @@ export class Poller {
             await sendImageReply(imagePath, this.settings.coordinates)
             this.addLog('send', '已发送图片')
           } else {
-            // Check if question is about group chat content and we have context
-            const chatContext = getLastChatContext()
+            // Check if question is about group chat content — if so, fetch fresh data
             let finalQuestion = question
-            if (chatContext && this.isAboutChatHistory(question)) {
-              finalQuestion =
-                `以下是群聊历史记录供你参考：\n\n${chatContext}\n\n` +
-                `用户提问：${question}`
-              this.addLog('info', '已注入群聊上下文')
+            if (this.isAboutChatHistory(question)) {
+              try {
+                this.addLog('info', '检测到群聊查询意图，正在获取今日聊天记录...')
+                const today = new Date()
+                const y = today.getFullYear()
+                const m = String(today.getMonth() + 1).padStart(2, '0')
+                const d = String(today.getDate()).padStart(2, '0')
+                const dateStr = `${y}${m}${d}`
+                const groupId = this.settings.talker.includes('@chatroom')
+                  ? this.settings.talker
+                  : `${this.settings.talker}@chatroom`
+                const result = await fetchChatHistory({
+                  apiUrl: this.settings.apiUrl,
+                  talker: this.settings.talker,
+                  date: dateStr,
+                  botSender: this.settings.botSender,
+                  groupId
+                })
+                const chatContext = formatForSummary(result.messages)
+                if (chatContext.trim()) {
+                  finalQuestion =
+                    `以下是今日群聊历史记录（共 ${result.messages.length} 条有效消息）：\n\n${chatContext}\n\n` +
+                    `用户提问：${question}`
+                  this.addLog('info', `已获取 ${result.messages.length} 条消息并注入上下文`)
+                } else {
+                  this.addLog('info', '今日暂无群聊记录')
+                }
+              } catch (err) {
+                this.addLog('warn', `获取群聊记录失败: ${err.message}`)
+              }
             }
             const reply = await this.callAI(finalQuestion)
             this.addLog('ai', `AI回复: ${reply.slice(0, 80)}`)

@@ -7,11 +7,13 @@ let lastChatContext = ''
 
 /**
  * Fetch chat history from API in ChatLab format, clean it, return structured data.
- * @param {object} opts - { apiUrl, talker, date, botSender }
+ * @param {object} opts - { apiUrl, talker, date, botSender, groupId, keyword }
  *   date: 'YYYYMMDD' string
  *   botSender: the bot's wxid to filter out
+ *   groupId: the chatroom's platformId, used to filter out group-as-speaker messages (withdrawn/recalled messages)
+ *   keyword: optional text filter on message content
  */
-export async function fetchChatHistory({ apiUrl, talker, date, botSender }) {
+export async function fetchChatHistory({ apiUrl, talker, date, botSender, groupId, keyword }) {
   const baseUrl = apiUrl.replace(/\/messages\/?$/, '/messages')
   // date is 'YYYYMMDD', compute next day for end range (exclusive)
   const y = parseInt(date.slice(0, 4), 10)
@@ -21,7 +23,7 @@ export async function fetchChatHistory({ apiUrl, talker, date, botSender }) {
   const endDate = `${next.getFullYear()}${String(next.getMonth() + 1).padStart(2, '0')}${String(next.getDate()).padStart(2, '0')}`
 
   const res = await axios.get(baseUrl, {
-    params: { talker, chatlab: 1, start: date, end: endDate, limit: 10000 },
+    params: { talker, chatlab: 1, start: date, end: endDate, limit: 10000, keyword: keyword || undefined },
     timeout: 30000
   })
 
@@ -51,6 +53,8 @@ export async function fetchChatHistory({ apiUrl, talker, date, botSender }) {
       if (ts < dayStartMs || ts >= dayEndMs) return false
       // Filter out bot's own messages
       if (botSender && m.sender === botSender) return false
+      // Filter out group-as-speaker messages (withdrawn/recalled messages, sender = groupId)
+      if (groupId && m.sender === groupId) return false
       // Only keep text messages (type 0)
       if (m.type !== 0) return false
       // Skip empty
