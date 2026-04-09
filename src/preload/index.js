@@ -34,6 +34,19 @@ const api = {
   },
   removeCaptureListener: () => {
     ipcRenderer.removeAllListeners('capture:countdown')
+  },
+  // Scheduler API
+  listScheduledTasks: () => ipcRenderer.invoke('scheduler:list'),
+  addScheduledTask: (task) => ipcRenderer.invoke('scheduler:add', task),
+  updateScheduledTask: (id, updates) => ipcRenderer.invoke('scheduler:update', { id, updates }),
+  deleteScheduledTask: (id) => ipcRenderer.invoke('scheduler:delete', id),
+  toggleScheduledTask: (id) => ipcRenderer.invoke('scheduler:toggle', id),
+  runScheduledTask: (id) => ipcRenderer.invoke('scheduler:run', id),
+  onSchedulerEvent: (callback) => {
+    ipcRenderer.on('scheduler:event', (_event, data) => callback(data))
+  },
+  removeSchedulerListener: () => {
+    ipcRenderer.removeAllListeners('scheduler:event')
   }
 }
 

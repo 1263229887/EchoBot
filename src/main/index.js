@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { loadSettings, saveSettings } from './store'
 import { Poller } from './poller'
+import { initScheduler, stopScheduler, getTasks, addTask, updateTask, deleteTask, toggleTask, runTask } from './scheduler'
 import { fetchChatHistory, formatForSummary, getCachedSummary, setCachedSummary, setLastChatContext } from './chatHistory'
 import { askAI, stripMarkdown } from './ai'
 import { askOpenClaw } from './openclaw'
@@ -45,6 +46,7 @@ function createWindow() {
   }
 
   poller = new Poller(mainWindow)
+  initScheduler(mainWindow)
 }
 
 // IPC handlers
@@ -227,6 +229,14 @@ function registerIPC() {
       return { success: false, error: err.message }
     }
   })
+
+  // Scheduler IPC handlers
+  ipcMain.handle('scheduler:list', () => getTasks())
+  ipcMain.handle('scheduler:add', (_e, task) => addTask(task))
+  ipcMain.handle('scheduler:update', (_e, { id, updates }) => updateTask(id, updates))
+  ipcMain.handle('scheduler:delete', (_e, id) => deleteTask(id))
+  ipcMain.handle('scheduler:toggle', (_e, id) => toggleTask(id))
+  ipcMain.handle('scheduler:run', (_e, id) => runTask(id))
 }
 
 app.whenReady().then(() => {

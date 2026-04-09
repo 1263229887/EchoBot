@@ -28,6 +28,76 @@
       <div v-if="aiStatus" :class="['ai-status', aiStatusType]">{{ aiStatus }}</div>
     </div>
 
+    <div class="scheduler-panel">
+      <div class="scheduler-header">
+        <h3>定时任务</h3>
+        <button class="btn-add" @click="showAddForm = !showAddForm">
+          {{ showAddForm ? '取消添加' : '+ 新建任务' }}
+        </button>
+      </div>
+
+      <div v-if="showAddForm" class="add-form">
+        <div class="form-row">
+          <label>任务名称</label>
+          <input v-model="newTask.name" type="text" placeholder="如：黄金价格提醒" />
+        </div>
+        <div class="form-row">
+          <label>执行方式</label>
+          <select v-model="newTask.scheduleType">
+            <option value="hourly">每小时整点</option>
+            <option value="daily">每天定时</option>
+            <option value="interval">间隔分钟</option>
+          </select>
+        </div>
+        <div v-if="newTask.scheduleType === 'daily'" class="form-row">
+          <label>执行时间</label>
+          <input v-model="newTask.time" type="time" />
+        </div>
+        <div v-if="newTask.scheduleType === 'interval'" class="form-row">
+          <label>间隔分钟</label>
+          <input v-model.number="newTask.intervalMinutes" type="number" min="1" />
+        </div>
+        <div class="form-row">
+          <label>AI 提问内容</label>
+          <input v-model="newTask.prompt" type="text" placeholder="如：查询当前黄金价格" />
+        </div>
+        <div class="form-actions">
+          <button class="btn-create" @click="createTask">创建任务</button>
+        </div>
+      </div>
+
+      <div v-if="schedulerEvents.length > 0" class="scheduler-events">
+        <div v-for="(event, i) in schedulerEvents.slice(-5)" :key="i" :class="['event-item', event.type]">
+          <span class="event-time">{{ event.time }}</span>
+          <span class="event-msg">{{ event.taskName }}: {{ event.message || (event.type === 'run' ? '执行中...' : event.type) }}</span>
+        </div>
+      </div>
+
+      <div class="task-list" v-if="tasks.length > 0">
+        <div v-for="task in tasks" :key="task.id" :class="['task-item', { disabled: !task.enabled }]">
+          <div class="task-info">
+            <div class="task-name">{{ task.name }}</div>
+            <div class="task-schedule">
+              {{ task.scheduleType === 'hourly' ? '每小时整点' : task.scheduleType === 'daily' ? `每天 ${task.time}` : `每${task.intervalMinutes}分钟` }}
+              <span class="task-prompt">{{ task.prompt }}</span>
+            </div>
+            <div class="task-meta">
+              执行 {{ task.runCount || 0 }} 次
+              <span v-if="task.lastRunAt">，上次 {{ formatTime(new Date(task.lastRunAt).getTime()) }}</span>
+            </div>
+          </div>
+          <div class="task-actions">
+            <button class="btn-run" @click="runTask(task.id)">立即执行</button>
+            <button :class="['btn-toggle', task.enabled ? 'on' : 'off']" @click="toggleTask(task.id)">
+              {{ task.enabled ? '已启用' : '已禁用' }}
+            </button>
+            <button class="btn-delete" @click="removeTask(task.id)">删除</button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="empty">暂无定时任务</div>
+    </div>
+
     <div class="log-panel">
       <div class="log-header">
         <h3>消息日志</h3>
@@ -55,6 +125,18 @@ const aiInput = ref('')
 const aiSending = ref(false)
 const aiStatus = ref('')
 const aiStatusType = ref('')
+
+// Scheduler state
+const tasks = ref([])
+const schedulerEvents = ref([])
+const showAddForm = ref(false)
+const newTask = ref({
+  name: '',
+  scheduleType: 'hourly',
+  time: '09:00',
+  intervalMinutes: 60,
+  prompt: '查询当前黄金价格'
+})
 
 async function doAISend() {
   if (!aiInput.value.trim() || aiSending.value) return
@@ -100,6 +182,61 @@ async function clearLogs() {
   await window.api.clearLogs()
 }
 
+// Scheduler functions
+async function loadTasks() {
+  tasks.value = await window.api.listScheduledTasks()
+}
+
+async function createTask() {
+  if (!newTask.value.name.trim() || !newTask.value.prompt.trim()) return
+  await window.api.addScheduledTask({ ...newTask.value })
+  await loadTasks()
+  showAddForm.value = false
+  newTask.value = {
+    name: '',
+    scheduleType: 'hourly',
+    time: '09:00',
+    intervalMinutes: 60,
+    prompt: '查询当前黄金价格'
+  }
+}
+
+async function runTask(id) {
+  const task = tasks.value.find((t) => t.id === id)
+  if (!task) return
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  schedulerEvents.value.push({ type: 'run', taskId: id, taskName: task.name, message: '开始执行...', time: timeStr })
+  try {
+    const result = await window.api.runScheduledTask(id)
+    if (result.success) {
+      schedulerEvents.value.push({ type: 'success', taskId: id, taskName: task.name, message: result.reply?.slice(0, 50), time: timeStr })
+    } else {
+      schedulerEvents.value.push({ type: 'error', taskId: id, taskName: task.name, message: result.error, time: timeStr })
+    }
+    await loadTasks()
+  } catch (err) {
+    schedulerEvents.value.push({ type: 'error', taskId: id, taskName: task.name, message: err.message, time: timeStr })
+  }
+}
+
+async function toggleTask(id) {
+  await window.api.toggleScheduledTask(id)
+  await loadTasks()
+}
+
+async function removeTask(id) {
+  await window.api.deleteScheduledTask(id)
+  await loadTasks()
+}
+
+function onSchedulerEvent(data) {
+  schedulerEvents.value.push(data)
+  if (schedulerEvents.value.length > 20) {
+    schedulerEvents.value = schedulerEvents.value.slice(-20)
+  }
+}
+
 function onStatus(data) {
   running.value = data.running
   processedCount.value = data.processedCount
@@ -108,12 +245,15 @@ function onStatus(data) {
 
 onMounted(async () => {
   window.api.onStatusUpdate(onStatus)
+  window.api.onSchedulerEvent(onSchedulerEvent)
   const s = await window.api.getStatus()
   onStatus(s)
+  await loadTasks()
 })
 
 onUnmounted(() => {
   window.api.removeStatusListener()
+  window.api.removeSchedulerListener()
 })
 </script>
 
@@ -280,4 +420,162 @@ h2 {
   color: var(--text-primary);
   word-break: break-all;
 }
+
+/* Scheduler Panel */
+.scheduler-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+.scheduler-panel h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.scheduler-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.btn-add {
+  padding: 4px 12px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-add:hover { background: var(--accent-hover); }
+
+/* Add Form */
+.add-form {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.form-row label {
+  min-width: 80px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.form-row input,
+.form-row select {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.form-row input:focus,
+.form-row select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.btn-create {
+  padding: 8px 20px;
+  background: var(--success);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-create:hover { background: #2db84e; }
+
+/* Scheduler Events */
+.scheduler-events {
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.event-item {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+.event-item:last-child { border-bottom: none; }
+.event-time { color: var(--text-tertiary); }
+.event-item.run .event-msg { color: var(--accent); }
+.event-item.success .event-msg { color: var(--success); }
+.event-item.error .event-msg { color: var(--danger); }
+
+/* Task List */
+.task-list { margin-top: 8px; }
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.task-item:last-child { border-bottom: none; }
+.task-item.disabled { opacity: 0.5; }
+.task-info { flex: 1; }
+.task-name { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.task-schedule { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.task-prompt { color: var(--accent); margin-left: 8px; }
+.task-meta { font-size: 11px; color: var(--text-tertiary); }
+.task-actions { display: flex; gap: 8px; }
+.btn-toggle {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-toggle.on { background: var(--success); color: #fff; }
+.btn-toggle.on:hover { background: #2db84e; }
+.btn-toggle.off { background: var(--bg-input); color: var(--text-tertiary); border: 1px solid var(--border-light); }
+.btn-toggle.off:hover { background: var(--border); }
+.btn-run {
+  padding: 4px 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-run:hover { background: var(--accent-hover); }
+
+.btn-delete {
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-delete:hover { background: var(--danger); color: #fff; }
 </style>

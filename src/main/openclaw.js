@@ -446,12 +446,12 @@ export async function askOpenClaw(question, settings, { systemOverride } = {}) {
     throw new Error('No runId returned from chat.send')
   }
 
-  // Wait for the final response event (360s for multi-tool-call scenarios)
+  // Wait for the final response event (15min for multi-tool-call scenarios)
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       eventHandlers.delete(runId)
-      reject(new Error('OpenClaw response timeout (360s)'))
-    }, 360000)
+      reject(new Error('OpenClaw response timeout (900s)'))
+    }, 900000)
 
     eventHandlers.set(runId, { resolve, reject, timer })
   })
